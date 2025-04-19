@@ -2,15 +2,7 @@
 
 import { SessionContextProvider } from "@supabase/auth-helpers-react";
 import { ReactNode, useState, useEffect } from "react";
-
-let supabaseBrowser: typeof import("@/lib/supabaseClient").supabaseBrowser;
-if (typeof window !== "undefined") {
-  // Dynamically import to ensure it's only evaluated in browser
-  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-  import("@/lib/supabaseClient").then((mod) => {
-    supabaseBrowser = mod.supabaseBrowser;
-  });
-}
+import { supabaseBrowser } from "@/lib/supabaseClient";
 
 interface Props {
   children: ReactNode;
