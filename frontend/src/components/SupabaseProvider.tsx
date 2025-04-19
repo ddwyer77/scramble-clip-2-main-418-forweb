@@ -1,23 +1,27 @@
 "use client";
 
 import { SessionContextProvider } from "@supabase/auth-helpers-react";
-import { ReactNode, useState, useEffect } from "react";
-import { supabaseBrowser } from "@/lib/supabaseClient";
+import { ReactNode, useEffect, useState } from "react";
 
 interface Props {
   children: ReactNode;
 }
 
 export default function SupabaseProvider({ children }: Props) {
-  const [supabaseClient, setSupabaseClient] = useState<ReturnType<typeof supabaseBrowser> | null>(null);
+  // Using 'unknown' initially; will set to Supabase client at runtime
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [supabaseClient, setSupabaseClient] = useState<any>(null);
 
-  // Lazy initialise on client only
   useEffect(() => {
-    setSupabaseClient(supabaseBrowser());
+    // Dynamically import on the client to avoid SSR evaluation
+    import("@/lib/supabaseClient").then((mod) => {
+      const client = mod.supabaseBrowser();
+      setSupabaseClient(client);
+    });
   }, []);
 
   if (!supabaseClient) {
-    return null; // or a loading indicator
+    return null; // could render a loading spinner here
   }
 
   return (
