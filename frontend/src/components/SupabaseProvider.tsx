@@ -14,7 +14,7 @@ export default function SupabaseProvider({ children }: Props) {
 
   useEffect(() => {
     // Dynamically import to ensure the code runs only in the browser
-    import("@/lib/supabaseClient").then((mod) => {
+    import("../lib/supabaseClient").then((mod) => {
       const client = mod.supabaseBrowser();
       setSupabaseClient(client);
     });
