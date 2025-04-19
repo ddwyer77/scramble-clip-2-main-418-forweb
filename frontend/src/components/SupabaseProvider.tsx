@@ -8,12 +8,12 @@ interface Props {
 }
 
 export default function SupabaseProvider({ children }: Props) {
-  // Using 'unknown' initially; will set to Supabase client at runtime
+  // Will hold Supabase client when running in the browser
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [supabaseClient, setSupabaseClient] = useState<any>(null);
 
   useEffect(() => {
-    // Dynamically import on the client to avoid SSR evaluation
+    // Dynamically import to ensure the code runs only in the browser
     import("@/lib/supabaseClient").then((mod) => {
       const client = mod.supabaseBrowser();
       setSupabaseClient(client);
@@ -21,7 +21,7 @@ export default function SupabaseProvider({ children }: Props) {
   }, []);
 
   if (!supabaseClient) {
-    return null; // could render a loading spinner here
+    return null; // could render a spinner here
   }
 
   return (
