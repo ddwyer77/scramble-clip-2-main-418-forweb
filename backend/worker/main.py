@@ -1,8 +1,12 @@
 import os, time, json, tempfile, subprocess
 from pathlib import Path
 from supabase import create_client, Client
+import sys
 
-from processor import generator
+# Add the project's src directory to the Python path so we can import generator.py
+src_dir = Path(__file__).resolve().parents[2] / "src"
+sys.path.insert(0, str(src_dir))
+import generator
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
@@ -26,45 +30,58 @@ def upload_file(bucket: str, path: str, local_path: Path):
 
 def process_job(job):
     job_id = job["id"]
-    params = job["params"] or {}
-    raw_path = params.get("path")
-    if not raw_path:
-        supabase.table("job_queue").update({"status": "error"}).eq("id", job_id).execute()
-        return
+    params = job.get("params") or {}
+
+    # Accept new "paths" (list) param, fall back to legacy "path"
+    raw_paths = params.get("paths")
+    if not raw_paths:
+        legacy_path = params.get("path")
+        if not legacy_path:
+            supabase.table("job_queue").update({"status": "error"}).eq("id", job_id).execute()
+            return
+        raw_paths = [legacy_path]
 
     # update status processing
     supabase.table("job_queue").update({"status": "processing", "progress": 0}).eq("id", job_id).execute()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        raw_file = tmpdir / "input.mp4"
-        download_file(RAW_BUCKET, raw_path, raw_file)
+
+        # Download all raw clips referenced in the job params
+        local_inputs = []
+        for p in raw_paths:
+            local_path = tmpdir / Path(p).name
+            download_file(RAW_BUCKET, p, local_path)
+            local_inputs.append(str(local_path))
+
         output_dir = tmpdir / "out"
         output_dir.mkdir()
 
         try:
             generator.generate_batch(
-                [str(raw_file)],
-                num_videos=1,
+                local_inputs,
+                num_videos=int(params.get("num_videos", 1)),
                 output_dir=str(output_dir),
-                progress_callback=lambda pct, msg: supabase.table("job_queue")
+                progress_callback=lambda pct, _msg: supabase.table("job_queue")
                 .update({"progress": pct})
                 .eq("id", job_id)
                 .execute(),
             )
-        except Exception as e:
+        except Exception:
             supabase.table("job_queue").update({"status": "error"}).eq("id", job_id).execute()
             return
 
-        # upload result
-        out_file = next(output_dir.glob("*.mp4"))
-        output_path = f"{job_id}/{out_file.name}"
-        upload_file(OUTPUT_BUCKET, output_path, out_file)
+        # upload all generated videos and collect their storage paths
+        output_paths = []
+        for out_file in output_dir.glob("*.mp4"):
+            storage_path = f"{job_id}/{out_file.name}"
+            upload_file(OUTPUT_BUCKET, storage_path, out_file)
+            output_paths.append(storage_path)
 
         supabase.table("job_queue").update(
             {
                 "status": "finished",
-                "output_urls": json.dumps([output_path]),
+                "output_urls": json.dumps(output_paths),
                 "progress": 100,
             }
         ).eq("id", job_id).execute()

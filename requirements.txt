@@ -4,4 +4,4 @@ tk>=0.1.0
 ffmpeg-python>=0.2.0
 pillow<=9.0.0
 opencv-python>=4.5.1
-supabase-py>=2.0.2 
+supabase>=0.2.0 
