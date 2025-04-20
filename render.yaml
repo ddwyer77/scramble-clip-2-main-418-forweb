@@ -1,0 +1,37 @@
+services:
+  # Next.js frontend
+  - name: scramble-clip-frontend
+    type: web
+    env: node
+    plan: free
+    buildCommand: |
+      cd frontend
+      npm ci
+      npm run build
+    startCommand: |
+      cd frontend
+      npm run start
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        fromDatabase: False
+        value: YOUR_SUPABASE_URL
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        fromDatabase: False
+        value: YOUR_SUPABASE_ANON_KEY
+
+  # Python background worker
+  - name: scramble-clip-worker
+    type: worker
+    env: python
+    plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+    startCommand: |
+      python backend/worker/main.py
+    envVars:
+      - key: SUPABASE_URL
+        fromDatabase: False
+        value: YOUR_SUPABASE_URL
+      - key: SUPABASE_SERVICE_KEY
+        fromDatabase: False
+        value: YOUR_SUPABASE_SERVICE_ROLE_KEY 
